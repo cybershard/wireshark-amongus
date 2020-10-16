@@ -3,6 +3,13 @@ This repo contains a Wireshark Lua plugin to tag and analyze packets running on 
 It registers a new protocol and parses all packets. Currently, a lot of the protocol is fully analyzed, 
 but this project a WIP and it doesn't have every detail for every packet.
 
+## Installation
+Install the lua plugin by cloning this repo and dropping the `among_us_dissector.lua` in your device specific plugin folder
+- Read this: https://www.wireshark.org/docs/wsug_html_chunked/ChPluginFolders.html
+- Windows: `%APPDATA%\Wireshark\plugins`
+- macOS: `%APPDIR%/Contents/PlugIns/wireshark` if installed as an application bundle, or `INSTALLDIR/lib/wireshark/plugins` if installed seperately
+- Linux/Unix-like OSes: `~/.local/lib/wireshark/plugins`
+
 Contributions are welcome, just open a pull request to the **dev branch**. 
 
 Please open an issue on the Github tracker if you have a packet that doesn't get dissected (or gets dissected incorrectly)
