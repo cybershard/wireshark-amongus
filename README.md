@@ -18,7 +18,7 @@ Please open an issue on the Github tracker if you have a packet that doesn't get
 To Do: 
 - Add fields to allow easy filtering (currently can only filter wireshark by 'amongus' as a protocol)
 - Document fields once created
-- Better code style 
+- Better code style (Use tables to index and retreive parsing functions for each packet format type)
 - Might be converted to a C plugin if I can get compilation working properly 
 
 ## Credits
