@@ -20,3 +20,6 @@ To Do:
 - Document fields once created
 - Better code style 
 - Might be converted to a C plugin if I can get compilation working properly 
+
+## Credits
+Thank you to the [Among Us Protocol Wiki](https://wiki.weewoo.net/) and everyone in the [Impostor discord](https://discord.gg/Mk3w6Tb)
