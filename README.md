@@ -10,6 +10,7 @@ Install the lua plugin by cloning this repo and dropping the `among_us_dissector
 - macOS: `%APPDIR%/Contents/PlugIns/wireshark` if installed as an application bundle, or `INSTALLDIR/lib/wireshark/plugins` if installed seperately
 - Linux/Unix-like OSes: `~/.local/lib/wireshark/plugins`
 
+## Contributions and Issues
 Contributions are welcome, just open a pull request to the **dev branch**. 
 
 Please open an issue on the Github tracker if you have a packet that doesn't get dissected (or gets dissected incorrectly)
