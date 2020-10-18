@@ -10,6 +10,43 @@ Install the lua plugin by cloning this repo and dropping the `among_us_dissector
 - macOS: `%APPDIR%/Contents/PlugIns/wireshark` if installed as an application bundle, or `INSTALLDIR/lib/wireshark/plugins` if installed seperately
 - Linux/Unix-like OSes: `~/.local/lib/wireshark/plugins`
 
+## Basic Usage
+- First, open up wireshark on the interface that the client is sending through (localhost if running a local server)
+- Filter output by protocol `amongus` in the filter bar
+- View packet dissection in the tree
+
+## Filter examples
+- View Among Us protocol UDP packets only: `amongus`
+- View only Among Us reliable packets: `amongus and amongus.packet_format eq Reliable` or `amongus and amongus.packet_format eq 1`
+- Remove Pings and ACKs from the view: `amongus and !(amongus.packet_format eq Ping or amongus.packet_format eq Acknowledgement)`
+- View only GameData payload packets (reliable and unreliable packets): `amongus and amongus.payload_type eq GameData`
+- The valid names/numbers for `amongus.packet_format` and `amongus.payload_type` are:
+     - ```
+        Packet_Format = {
+            Unreliable = 0,
+            Reliable = 1,
+            Hello = 8,
+            Disconnect = 9,
+            Acknowledgement = 10,
+            Ping = 12,
+        }
+        
+        Payload_Type = {
+            CreateGame = 0,
+            JoinGame = 1,
+            StartGame = 2,
+            RemoveGame = 3,
+            RemovePlayer = 4,
+            GameData = 5,
+            GameDataTo = 6,
+            JoinedGame = 7,
+            AlterGame = 10,
+            Redirect = 13,
+            RedirectMasterServer = 14,
+            GetGameList2 = 16
+        }
+        ```
+
 ## Contributions and Issues
 Contributions are welcome, just open a pull request to the **dev branch**. 
 

@@ -324,8 +324,6 @@ function parse_packet_format(buffwrap, pinfo, tree)
         local packet_nonce = buffwrap:read_bytes(2)
         tree:add(packet_nonce, "Packet Nonce: " .. packet_nonce:uint())
 
-    else
-        tree:add(b_packet_format, "Packet Format: Unknown")
     end
     end
     end
@@ -481,8 +479,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             local port = buffwrap:read_bytes(2)
             subtree:add(ipaddr, "Redirect To IP: " .. ipaddr:ipv4())
             subtree:add(port, "Redirect To Port: " .. ipaddr:uint())
-        else
-            tree:add(b_payload_type, "Payload Type: Unknown Payload: " .. b_payload_type:uint())
+
         end
         end
         end
