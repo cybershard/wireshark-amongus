@@ -15,8 +15,11 @@ Contributions are welcome, just open a pull request to the **dev branch**.
 
 Please open an issue on the Github tracker if you have a packet that doesn't get dissected (or gets dissected incorrectly)
 
+Worked On:
+- Fields for protocol. Packet Format (Reliable, Hello, etc) and Payload Type (JoinGame, GameData, etc)
+
 To Do: 
-- Add fields to allow easy filtering (currently can only filter wireshark by 'amongus' as a protocol)
+- Add more fields to allow easy filtering
 - Document fields once created
 - Better code style (Use tables to index and retreive parsing functions for each packet format type)
 - Might be converted to a C plugin if I can get compilation working properly 

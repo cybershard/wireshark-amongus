@@ -656,6 +656,7 @@ function parseSpawnObjectComponents(buffwrap, pinfo, tree, objecttype, index)
     end
     end
     end
+    end
 
     component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
     component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
