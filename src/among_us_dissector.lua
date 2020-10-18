@@ -312,7 +312,7 @@ function parse_packet_format(buffwrap, pinfo, tree)
         local player_name_length = buffwrap:read_bytes(1)
         tree:add(player_name_length, "Player Name Length: " .. player_name_length:uint())
         local player_name_string = buffwrap:read_bytes(player_name_length:uint())
-        tree:add(player_name_string, "Client Version: " .. player_name_string:string())
+        tree:add(player_name_string, "Player Name: " .. player_name_string:string())
 
     else if b_packet_format:uint() == Packet_Format['Disconnect'] then
 
@@ -344,8 +344,9 @@ function parse_packet_payload(buffwrap, pinfo, tree)
         local b_payload_type = buffwrap:read_bytes(1)
         local subtree = tree:add(payload_type_field, b_payload_type)
 
+
         if b_payload_type:uint() == Payload_Type['CreateGame'] then
-            tree:add(payload_type, "Payload Type: CreateGame")
+            tree:add(b_payload_type, "Payload Type: CreateGame")
 
         else if b_payload_type:uint() == Payload_Type['JoinGame'] then
             if buffwrap:rest_of_buffer():len() == 5 then
@@ -380,7 +381,8 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             local gamecode = buffwrap:read_bytes(4)
             subtree:add(gamecode, "Gamecode: " .. decode_gamecode(gamecode:int()))
 
-            parseGameDataParts(buffwrap, pinfo, subtree)
+            parseGameDataParts(buffwrap, pinfo, subtree,
+                    payload_length:le_uint() - 4) -- minus 4 because of gamecode bytes
 
         else if b_payload_type:uint() == Payload_Type['GameDataTo'] then
             local gamecode = buffwrap:read_bytes(4)
@@ -388,7 +390,8 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             subtree:add(gamecode, "Gamecode: " .. decode_gamecode(gamecode:int()))
             subtree:add(packed_int_buffer, "Recipient Client ID (Packed Int): " .. recipientid)
 
-            parseGameDataParts(buffwrap, pinfo, subtree)
+            parseGameDataParts(buffwrap, pinfo, subtree,
+                    payload_length:le_uint() - 4) -- minus 4 because of gamecode bytes
 
         else if b_payload_type:uint() == Payload_Type['JoinedGame'] then
             local gamecode = buffwrap:read_bytes(4)
@@ -415,9 +418,9 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             local payloadVersion = buffwrap:read_bytes(1)
             local privacyBool = buffwrap:read_bytes(1)
             if privacyBool:uint() == 1 then
-                subtree:add(privacyBool, "Privacy: Private")
-            else
                 subtree:add(privacyBool, "Privacy: Public")
+            else
+                subtree:add(privacyBool, "Privacy: Private")
             end
 
         else if b_payload_type:uint() == Payload_Type['RedirectMasterServer'] then
@@ -503,9 +506,8 @@ function parse_packet_payload(buffwrap, pinfo, tree)
     end
 end
 
-function parseGameDataParts (buffwrap, pinfo, tree, gameDataLength)
-    local currentOffset = buffwrap.current_offset
-    while (gameDataLength - currentOffset > 0)
+function parseGameDataParts (buffwrap, pinfo, tree, gameDataPartLength)
+    while (gameDataPartLength - buffwrap.current_offset > 0)
     do
         local part_length = buffwrap:read_bytes(2)
         tree:add(part_length, "Part Length: " .. part_length:le_uint())
@@ -978,6 +980,6 @@ udp_table = DissectorTable.get("udp.port")
 udp_table:add(22023, proto_among_us)
 udp_table:add(22123, proto_among_us)
 udp_table:add(22223, proto_among_us)
-udp_table:add(22723, proto_among_us)
-udp_table:add(22823, proto_among_us)
 udp_table:add(22623, proto_among_us)
+udp_table:add(22823, proto_among_us)
+udp_table:add(22723, proto_among_us)
