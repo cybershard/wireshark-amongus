@@ -118,6 +118,10 @@ PlanetMap_Components = {
     "AllSystemStatuses",
 }
 
+AprilShipStatus_Components = {
+    "Flipped Skeld",
+}
+
 
 -- Non 'Packet' Enums
 Disconnect_Types = {
@@ -638,7 +642,9 @@ function parseSpawnObjectComponents(buffwrap, pinfo, tree, objecttype, index)
     else if objecttype == Spawned_Object_Ids["PlanetMap"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. PlanetMap_Components[index] .. ")")
-
+    else if objecttype == Spawned_Object_Ids["AprilShipStatus"] then
+        component_tree = tree:add(whole_packet_buffer, "Component " .. index
+                .. " (" .. AprilShipStatus_Components[index] .. ")")
 
     else
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
