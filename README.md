@@ -1,7 +1,9 @@
 # Among Us Wireshark Dissector
 This repo contains a Wireshark Lua plugin to tag and analyze packets running on the Among Us UDP ports. 
-It registers a new protocol and parses all packets. Currently, a lot of the protocol is fully analyzed, 
-but this project a WIP and it doesn't have every detail for every packet.
+It registers a new protocol and parses all packets. Currently, a lot of the protocol is fully analyzed. 
+One caveat to this dissector is that it is stateless: if a field requires context from a previous packet, only the 
+representation of the field as it appears in the packet will be shown (so numerical ID instead of resolving to a player name).
+However, this also means that the dissector will never be in a unknown bad state and give wrong info.
 
 ## Installation
 Install the lua plugin by cloning this repo and dropping the `among_us_dissector.lua` in your device specific plugin folder
@@ -20,7 +22,7 @@ Install the lua plugin by cloning this repo and dropping the `among_us_dissector
 - View only Among Us reliable packets: `amongus and amongus.packet_format eq Reliable` or `amongus and amongus.packet_format eq 1`
 - Remove Pings and ACKs from the view: `amongus and !(amongus.packet_format eq Ping or amongus.packet_format eq Acknowledgement)`
 - View only GameData payload packets (reliable and unreliable packets): `amongus and amongus.payload_type eq GameData`
-- The valid names/numbers for `amongus.packet_format` and `amongus.payload_type` are:
+- The valid names/numbers for `amongus.packet_format` and `amongus.payload_type` and `amongus.game_data` are:
      - ```
         Packet_Format = {
             Unreliable = 0,
@@ -45,6 +47,15 @@ Install the lua plugin by cloning this repo and dropping the `among_us_dissector
             RedirectMasterServer = 14,
             GetGameList2 = 16
         }
+       Game_Data_Part_Type = {
+           Data = 1,
+           RPC = 2,
+           Spawn = 4,
+           Despawn = 5,
+           SceneChange = 6,
+           Ready = 7,
+           ChangeSettings = 8
+       }
         ```
 
 ## Contributions and Issues
