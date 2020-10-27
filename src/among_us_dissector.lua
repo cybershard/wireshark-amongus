@@ -22,7 +22,11 @@ Payload_Type = {
     GameData = 5,
     GameDataTo = 6,
     JoinedGame = 7,
+    EndGame = 8,
+    GetGameList1 = 9,
     AlterGame = 10,
+    KickPlayer = 11,
+    WaitForHost = 12,
     Redirect = 13,
     RedirectMasterServer = 14,
     GetGameList2 = 16
@@ -240,6 +244,12 @@ Language_Ids = {
     end
 }
 
+V2 = "QWXRTYLPESDFGHUJKZOCVBINMA"
+function V2index (index)
+    return string.sub(V2, index + 1, index + 1)
+end
+
+
 function generate_backreference(table)
     local int_to_string = {}
     for key, value in pairs(table) do
@@ -274,6 +284,9 @@ function create_buffer_wrapper(buffer)
     function object:rest_of_buffer()
         return self.buffer(self.current_offset)
     end
+    function object:peek_bytes(consume)
+        return self.buffer(self.current_offset, consume)
+    end
     function object:decode_packed()
         local packetlen = 0
         local initial_offset = self.current_offset
@@ -298,8 +311,18 @@ function create_buffer_wrapper(buffer)
     return object
 end
 
- -- TODO
-function decode_gamecode (gamecode) return gamecode end
+
+
+
+function decode_gamecode (gamecode)
+    local a = bit32.band(gamecode, 0x3FF)
+    local b = bit32.band(bit32.rshift(gamecode, 10), 0xFFFFF)
+    return V2index(a % 26) .. V2index(a / 26)
+            .. V2index(b % 26)
+            .. V2index(b / 26 % 26)
+            .. V2index(b / (26 ^ 2) % 26)
+            .. V2index(b / (26 ^ 3) % 26)
+end
 function decode_amount_repaired(amount) return amount end
 function decode_ipv4(ipv4_buffer)
     local ipv4 = ipv4_buffer:tvb()
@@ -373,7 +396,7 @@ function parse_packet_format(buffwrap, pinfo, tree)
         if (buffwrap:rest_of_buffer():len() > 0) then
             local disconnectType = buffwrap:read_bytes(1)
             local disconnectString = Disconnect_Types:decode(disconnectType:uint())
-            subtree:add(disconnectType, "Disconnected: " .. disconnectString)
+            tree:add(disconnectType, "Disconnected: " .. disconnectString)
         end
     else if b_packet_format:uint() == Packet_Format['Acknowledgement'] then
         local packet_nonce = buffwrap:read_bytes(2)
@@ -424,6 +447,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
                 local disconnectString = Disconnect_Types:decode(disconnectType:uint())
                 subtree:add(disconnectType, "Disconnected: " .. disconnectString)
             end
+            -- Also can be a Join game packet from another client id joining the game
 
         else if b_payload_type:uint() == Payload_Type['StartGame'] then
             local gamecode = buffwrap:read_bytes(4)
@@ -475,6 +499,13 @@ function parse_packet_payload(buffwrap, pinfo, tree)
                 local otherPlayerId, packed_other_player_id = buffwrap:decode_packed()
                 other_player_subtree:add(packed_other_player_id, "Other Player " .. i .. ": " .. otherPlayerId)
             end
+        else if b_payload_type:uint() == Payload_Type["EndGame"] then
+            local gamecode = buffwrap:read_bytes(4)
+            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+            local end_reason = buffwrap:read_bytes(1)
+            subtree:add(end_reason, "End Reason: " .. end_reason:uint())
+            local show_ad = buffwrap:read_bytes(1)
+            subtree:add(show_ad, "Show Ad: " .. end_reason:uint())
 
         else if b_payload_type:uint() == Payload_Type["AlterGame"] then
             local gamecode = buffwrap:read_bytes(4)
@@ -487,8 +518,55 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             else
                 subtree:add(privacyBool, "Privacy: Private")
             end
+        else if b_payload_type:uint() == Payload_Type["KickPlayer"] then
+            if payload_length:le_uint() == 2 then
+                local playerId, packed_player_id_buffer = buffwrap:decode_packed()
+                subtree:add(packed_player_id_buffer, "Player Id (Packed Int): " .. playerId)
+                if banned:uint() == 1 then
+                    subtree:add(banned, "Banned: true")
+                else if banned:uint() == 0 then
+                    subtree:add(banned, "Banned: false")
+                end
+                end
+            else
+                local gamecode = buffwrap:read_bytes(4)
+                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+                local playerId, packed_player_id_buffer = buffwrap:decode_packed()
+                subtree:add(packed_player_id_buffer, "Player Id (Packed Int): " .. playerId)
+                local banned = buffwrap:read_bytes(1)
+                if banned:uint() == 1 then
+                    subtree:add(banned, "Banned: true")
+                else if banned:uint() == 0 then
+                    subtree:add(banned, "Banned: false")
+                end
+                end
+            end
 
         else if b_payload_type:uint() == Payload_Type['RedirectMasterServer'] then
+            local masterServerListVersion = buffwrap:read_bytes(1)
+            local masterServerListLength = buffwrap:read_bytes(1)
+            subtree:add(masterServerListLength, "MasterServerList Length: " .. masterServerListLength:le_uint())
+            for i=1,masterServerListLength:le_uint(),1
+            do
+                local serverStart = buffwrap:peek_bytes(3)
+                local serverTree = subtree:add(serverStart, "Master Server " .. i)
+
+                local serverLength = buffwrap:read_bytes(2)
+                serverTree:add(serverLength, "Server Length: " .. serverLength:le_uint())
+                seperatorTag = buffwrap:read_bytes(2)
+
+                local name_length = buffwrap:read_bytes(1)
+                local name_string = buffwrap:read_bytes(name_length:le_uint())
+                serverTree:add(name_length, "Name Length: ", name_length:uint())
+                serverTree:add(name_string, "Name: " .. name_string:string())
+
+                local ipaddr = buffwrap:read_bytes(4)
+                local port = buffwrap:read_bytes(2)
+                serverTree:add(ipaddr, "IP: " .. decode_ipv4(ipaddr))
+                serverTree:add(port, "Port: " .. port:le_uint())
+                local player_count = buffwrap:read_bytes(2)
+                serverTree:add(player_count, "Player Count: " .. player_count:le_uint())
+            end
 
         else if b_payload_type:uint() == Payload_Type['GetGameList2'] then
             if not (buffwrap:rest_of_buffer():len() == 44) then -- Length of a GetGameList Packet (GameOptionsData + 2 bytes for length)
@@ -538,8 +616,10 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             local ipaddr = buffwrap:read_bytes(4)
             local port = buffwrap:read_bytes(2)
             subtree:add(ipaddr, "Redirect To IP: " .. decode_ipv4(ipaddr))
-            subtree:add(port, "Redirect To Port: " .. ipaddr:uint())
+            subtree:add(port, "Redirect To Port: " .. port:le_uint())
 
+        end
+        end
         end
         end
         end
