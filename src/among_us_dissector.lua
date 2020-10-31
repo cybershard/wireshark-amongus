@@ -541,6 +541,11 @@ function parse_packet_payload(buffwrap, pinfo, tree)
                 end
                 end
             end
+        else if b_payload_type:uint() == Payload_Type['Redirect'] then
+                local ipaddr = buffwrap:read_bytes(4)
+                local port = buffwrap:read_bytes(2)
+                subtree:add(ipaddr, "Redirect To IP: " .. decode_ipv4(ipaddr))
+                subtree:add(port, "Redirect To Port: " .. port:le_uint())
 
         else if b_payload_type:uint() == Payload_Type['RedirectMasterServer'] then
             local masterServerListVersion = buffwrap:read_bytes(1)
@@ -612,11 +617,6 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             subtree:add(settingsLength, "GameOptionsData Length: " .. settingsLength:uint())
             parseGameOptionsData(buffwrap, pinfo, subtree)
 
-        else if b_payload_type:uint() == Payload_Type['Redirect'] then
-            local ipaddr = buffwrap:read_bytes(4)
-            local port = buffwrap:read_bytes(2)
-            subtree:add(ipaddr, "Redirect To IP: " .. decode_ipv4(ipaddr))
-            subtree:add(port, "Redirect To Port: " .. port:le_uint())
 
         end
         end
@@ -636,7 +636,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
 
         -- Consume Unused bytes
         local actualBytesRead = buffwrap.current_offset - payloadStartOffset
-        local declaredLength = payload_length:le_uint() + 1 -- to add in the part type
+        local declaredLength = payload_length:le_uint() + 1 -- to add in the payload type
         if actualBytesRead < declaredLength then
             buffwrap:read_bytes(declaredLength - actualBytesRead)
         end
@@ -1003,7 +1003,8 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
 
     else if rpc_code:uint() == RPC_Code['EnterVent'] then
         tree:add(rpc_code, "RPC Code: EnterVent")
-
+        local ventId, packed_ventid_buffer = buffwrap:decode_packed()
+        tree:add(packed_ventid_buffer, "Vent Id: " .. ventId)
 
     else if rpc_code:uint() == RPC_Code['ExitVent'] then
         tree:add(rpc_code, "RPC Code: ExitVent")

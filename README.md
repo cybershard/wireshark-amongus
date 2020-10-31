@@ -42,7 +42,11 @@ Install the lua plugin by cloning this repo and dropping the `among_us_dissector
             GameData = 5,
             GameDataTo = 6,
             JoinedGame = 7,
+            EndGame = 8,
+            GetGameList1 = 9,
             AlterGame = 10,
+            KickPlayer = 11,
+            WaitForHost = 12,
             Redirect = 13,
             RedirectMasterServer = 14,
             GetGameList2 = 16
