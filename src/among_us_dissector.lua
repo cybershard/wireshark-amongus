@@ -442,12 +442,21 @@ function parse_packet_payload(buffwrap, pinfo, tree)
                 local map_ownership = buffwrap:read_bytes(1)
                 subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
                 subtree:add(map_ownership, "Map Ownership: " .. map_ownership)
+            else if buffwrap:rest_of_buffer():len() == 12 then
+                local gamecode = buffwrap:read_bytes(4)
+                local clientid = buffwrap:read_bytes(4)
+                local hostid = buffwrap:read_bytes(4)
+
+                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+                subtree:add(clientid, "Client Id: " .. clientid:le_uint())
+                subtree:add(hostid, "Host Id: " .. hostid:le_uint())
+
             else
                 local disconnectType = buffwrap:read_bytes(1)
                 local disconnectString = Disconnect_Types:decode(disconnectType:uint())
                 subtree:add(disconnectType, "Disconnected: " .. disconnectString)
             end
-            -- Also can be a Join game packet from another client id joining the game
+            end
 
         else if b_payload_type:uint() == Payload_Type['StartGame'] then
             local gamecode = buffwrap:read_bytes(4)
