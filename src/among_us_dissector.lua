@@ -1024,8 +1024,10 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
         tree:add(rpc_code, "RPC Code: SnapTo")
         local x = buffwrap:read_bytes(2)
         local y = buffwrap:read_bytes(2)
-        tree:add(x, "X: " .. x:float())
-        tree:add(y, "Y: " .. y:float())
+        tree:add(x, "X (float16): " .. x)
+        tree:add(y, "Y (float16): " .. y)
+        local sequence_counter = buffwrap:read_bytes(2)
+        tree:add(sequence_counter, "Sequence: " .. sequence_counter:le_uint())
 
 
     else if rpc_code:uint() == RPC_Code['Close'] then
