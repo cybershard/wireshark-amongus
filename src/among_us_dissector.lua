@@ -1013,8 +1013,8 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
 
     else if rpc_code:uint() == RPC_Code['SnapTo'] then
         tree:add(rpc_code, "RPC Code: SnapTo")
-        local x = buffwrap:read_bytes(4)
-        local y = buffwrap:read_bytes(4)
+        local x = buffwrap:read_bytes(2)
+        local y = buffwrap:read_bytes(2)
         tree:add(x, "X: " .. x:float())
         tree:add(y, "Y: " .. y:float())
 
