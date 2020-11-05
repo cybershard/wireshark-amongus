@@ -567,7 +567,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
 
                 local serverLength = buffwrap:read_bytes(2)
                 serverTree:add(serverLength, "Server Length: " .. serverLength:le_uint())
-                seperatorTag = buffwrap:read_bytes(2)
+                seperatorTag = buffwrap:read_bytes(1)
 
                 local name_length = buffwrap:read_bytes(1)
                 local name_string = buffwrap:read_bytes(name_length:le_uint())
