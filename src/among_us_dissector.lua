@@ -23,10 +23,10 @@ Payload_Type = {
     GameDataTo = 6,
     JoinedGame = 7,
     EndGame = 8,
-    GetGameList1 = 9,
+    GetGameList1 = 9, -- impl
     AlterGame = 10,
     KickPlayer = 11,
-    WaitForHost = 12,
+    WaitForHost = 12, -- impl
     Redirect = 13,
     RedirectMasterServer = 14,
     GetGameList2 = 16
@@ -220,7 +220,7 @@ System_Types = {
                 return type
             end
         end
-        return "Unknown Language Code: " .. system_id
+        return "Unknown System Type: " .. system_id
     end
 }
 
@@ -502,11 +502,11 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             local otherPlayerIdCount, packed_other_client_count = buffwrap:decode_packed()
 
             local other_player_subtree = subtree:add(packed_other_client_count,
-                "Other Player Id Count (Packed Int): " .. otherPlayerIdCount)
+                "Other Client Id Count (Packed Int): " .. otherPlayerIdCount)
             for i=1, otherPlayerIdCount, 1
             do
                 local otherPlayerId, packed_other_player_id = buffwrap:decode_packed()
-                other_player_subtree:add(packed_other_player_id, "Other Player " .. i .. ": " .. otherPlayerId)
+                other_player_subtree:add(packed_other_player_id, "Other Client " .. i .. ": " .. otherPlayerId)
             end
         else if b_payload_type:uint() == Payload_Type["EndGame"] then
             local gamecode = buffwrap:read_bytes(4)
@@ -694,11 +694,38 @@ function parseGameOptionsData(buffwrap, pinfo, tree)
 
     local defaults = buffwrap:read_bytes(1)
     tree:add(defaults, "Defaults: " .. defaults:uint())
-    local emergencyCooldown = buffwrap:read_bytes(1)
-    tree:add(emergencyCooldown, "Emergency Cooldown: " .. emergencyCooldown:uint())
 
-    -- Confirm Ejects and Visual Tasks isn't in here,
-    -- nor are the 10.8 version Anonymous Voting<bool> or Task Bar Updates<byte> = {Always, In Meetings, Never}
+
+    if (version:uint() >= 2) then
+        local emergencyCooldown = buffwrap:read_bytes(1)
+        tree:add(emergencyCooldown, "Emergency Cooldown: " .. emergencyCooldown:uint())
+    end
+    if (version:uint() >= 3) then
+        local confirmEjects = buffwrap:read_bytes(1)
+        tree:add(confirmEjects, "Confirm Ejects: " .. confirmEjects:uint())
+        local visualTasks = buffwrap:read_bytes(1)
+        tree:add(visualTasks, "Visual Tasks: " .. visualTasks:uint())
+    end
+    if (version:uint() >= 4) then
+        local anonVoting = buffwrap:read_bytes(1)
+        if (anonVoting:uint() == 1) then
+            tree:add(anonVoting, "Anonymous Voting: " .. "True")
+        else if (anonVoting:uint() == 0) then
+            tree:add(anonVoting, "Anonymous Voting: " .. "False")
+        end
+        end
+
+        local taskbarUpdates = buffwrap:read_bytes(1)
+        if (taskbarUpdates:uint() == 0) then
+            tree:add(taskbarUpdates, "Taskbar Updates: " .. "Always")
+        else if (taskbarUpdates:uint() == 1) then
+            tree:add(taskbarUpdates, "Taskbar Updates: " .. "In Meetings")
+        else if (taskbarUpdates:uint() == 2) then
+            tree:add(taskbarUpdates, "Taskbar Updates: " .. "Never")
+        end
+        end
+        end
+    end
 end
 
 
@@ -731,14 +758,14 @@ function parseGameDataParts(buffwrap, pinfo, tree, gameDataPartLength)
             local sceneName = buffwrap:read_bytes(sceneLength:le_uint())
             tree:add(packed_client_id_buffer, "Client Id (Packed Int): " .. clientid)
             tree:add(sceneLength, "Scene Name Length: " .. sceneLength:le_uint())
-            tree:add(sceneName, "Scene Name: " .. sceneName)
+            tree:add(sceneName, "Scene Name: " .. sceneName:string())
 
         else if part_type:uint() == Game_Data_Part_Type['Ready'] then
             local playerid, packed_player_id_buffer = buffwrap:decode_packed()
             tree:add(packed_player_id_buffer, "Player Id (Packed Int): " .. playerid)
 
         else if part_type:uint() == Game_Data_Part_Type['ChangeSettings'] then
-            -- TODO
+            -- TODO: Unused by among Us
         end
         end
         end
@@ -806,50 +833,165 @@ function parseSpawnObjectComponents(buffwrap, pinfo, tree, objecttype, index)
     local netid, packed_net_id_buffer = buffwrap:decode_packed()
     local component_length = buffwrap:read_bytes(2)
     local componentCommand = buffwrap:read_bytes(1)
-    local data = buffwrap:read_bytes(component_length:le_uint())
-    -- TODO: Parse Spawn data
+    -- TODO: Parse HeadQuarters and PlanetMap
 
-    local whole_packet_buffer = buffwrap.buffer(startOffset, buffwrap.current_offset - startOffset)
+    local whole_packet_buffer = buffwrap:peek_bytes(component_length:le_uint())
     local component_tree
 
     if objecttype == Spawned_Object_Ids["ShipStatus"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. ShipStatus_Components[index] .. ")")
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+        local data = buffwrap:read_bytes(component_length:le_uint())
+        component_tree:add(data, "Component Data: " .. data)
 
     else if objecttype == Spawned_Object_Ids["MeetingHud"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. MeetingHud_Components[index] .. ")")
-        -- index 1: <PlayerVoteFlag>[length player_count]. PlayerVoteFlag = 0x20-report, 0x40-vote, 0x40-dead,
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+
+        for i=1, component_length:le_uint(), 1 do
+            local voteAreaFlag = buffwrap:read_bytes(1)
+            local voteAreaFlagTree = component_tree:add(voteAreaFlag, "Player Id: " .. i)
+            local reported_player_id = bit32.band(voteAreaFlag:uint(), 0x0F) - 1
+            local did_report = bit32.band(voteAreaFlag:uint(), 0x20)
+            local did_vote = bit32.band(voteAreaFlag:uint(), 0x40)
+            local is_dead = bit32.band(voteAreaFlag:uint(), 0x80)
+            voteAreaFlagTree:add(voteAreaFlag, "Reported Player Id: " .. reported_player_id)
+            voteAreaFlagTree:add(voteAreaFlag, "Did Report: " .. did_report)
+            voteAreaFlagTree:add(voteAreaFlag, "Did Vote: " .. did_vote)
+            voteAreaFlagTree:add(voteAreaFlag, "Is Dead: " .. is_dead)
+
+        end
 
 
     else if objecttype == Spawned_Object_Ids["LobbyBehaviour"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. Lobby_Components[index] .. ")")
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+        local data = buffwrap:read_bytes(component_length:le_uint())
+        component_tree:add(data, "Component Data: " .. data)
 
     else if objecttype == Spawned_Object_Ids["GameData"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. GameData_Components[index] .. ")")
-        -- index 1: {packedint PlayerCount, [byte PlayerId,
-                -- String name, byte colorId, packedint hatId, packedInt petId, packedInt skinId
-                -- byte infected(if 2), byte tasks_total, [taskid, completed]]}
-        -- index 2: VoteBanSystem
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+
+        if index == 1 then
+            local player_count, player_count_buffer = buffwrap:decode_packed()
+            local dataTree = component_tree:add(player_count_buffer, "Player Count (Packed Int): " .. player_count)
+            for i=1, player_count, 1 do
+                local player_id = buffwrap:read_bytes(1)
+                local playerSubtree = dataTree:add(player_id, "Player Id: " .. player_id:uint())
+
+                local name_length = buffwrap:read_bytes(1)
+                local name_string = buffwrap:read_bytes(name_length:le_uint())
+                playerSubtree:add(name_length, "Name Length: ", name_length:uint())
+                playerSubtree:add(name_string, "Name: " .. name_string:string())
+
+                local color_byte = buffwrap:read_bytes(1)
+                playerSubtree:add(color_byte, "Color: " .. Crewmate_Colors[color_byte:uint()])
+
+                local hatid, packed_hat_buffer = buffwrap:decode_packed()
+                playerSubtree:add(packed_hat_buffer, "Hat Id (Packed Int): " .. hatid)
+
+                local petid, packed_pet_buffer = buffwrap:decode_packed()
+                playerSubtree:add(packed_pet_buffer, "Pet Id (Packed Int): " .. petid)
+
+                local skinid, packed_skin_id = buffwrap:decode_packed()
+                playerSubtree:add(packed_skin_id, "Skin Id (Packed Int): " .. skinid)
+
+                local flagbitfield = buffwrap:read_bytes(1)
+                local deathFlag = bit32.band(flagbitfield:uint(), 4)
+                local impostorFlag = bit32.band(flagbitfield:uint(), 2)
+                local disconnectFlag = bit32.band(flagbitfield:uint(), 1)
+                playerSubtree:add(flagbitfield, "Flags: Disconnect: " .. disconnectFlag ..
+                        ", Impostor: " .. impostorFlag ..
+                        ", Death: " .. deathFlag)
+
+                local tasks_total = buffwrap:read_bytes(1)
+                local tasksSubtree = playerSubtree:add(tasks_total, "Task Amount: " .. tasks_total:uint())
+                for i=1, tasks_total:uint(), 1 do
+                    local taskid, packed_task_id = buffwrap:decode_packed()
+                    local task_status = buffwrap:read_bytes(1)
+                    tasksSubtree:add(packed_task_id, "Task Id (Packed Int): " .. taskid)
+                    if task_status:uint() == 1 then
+                        tasksSubtree:add(task_status, "Task complete: true")
+                    else
+                        tasksSubtree:add(task_status, "Task complete: false")
+                    end
+                end
+            end
+        else
+            local data = buffwrap:read_bytes(component_length:le_uint())
+            component_tree:add(data, "Component Data: " .. data)
+        end
 
     else if objecttype == Spawned_Object_Ids["Player"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. Player_Components[index] .. ")")
-        -- index 1: {byte isNew, byte PlayerId}
-        -- index 2: None
-        -- index 3: {le_uint16 SequenceNumber, byte[2] PosX, byte[2] PosY, byte[2] VelX, byte[2] VelY}
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+
+
+        if index == 1 then
+            local is_new = buffwrap:read_bytes(1)
+            if is_new:uint() == 1 then
+                component_tree:add(is_new, "Is New (to the game): true")
+            else
+                component_tree:add(is_new, "Is New (to the game): false")
+            end
+
+            local player_id = buffwrap:read_bytes(1)
+            component_tree:add(player_id, "Player Id: " .. player_id:uint())
+        else if index == 3 then
+            local sequenceId = buffwrap:read_bytes(2)
+            component_tree:add(sequenceId, "Sequence Id: " .. sequenceId:le_uint())
+
+            local x = buffwrap:read_bytes(2)
+            local y = buffwrap:read_bytes(2)
+            local dx = buffwrap:read_bytes(2)
+            local dy = buffwrap:read_bytes(2)
+
+            local poseX, poseY = parseMoveVector(x:le_uint(), y:le_uint())
+            local velX, velY = parseMoveVector(dx:le_uint(), dy:le_uint())
+            component_tree:add(x, "Pose Vector.x: " .. poseX)
+            component_tree:add(y, "Pose Vector.y: " .. poseY)
+            component_tree:add(dx, "Velocity Vector.x: " .. velX)
+            component_tree:add(dy, "Velocity Vector.y: " .. velY)
+        else
+            local data = buffwrap:read_bytes(component_length:le_uint())
+            component_tree:add(data, "Component Data: " .. data)
+        end
+        end
 
     else if objecttype == Spawned_Object_Ids["HeadQuarters"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. HeadQuarters_Components[index] .. ")")
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+        local data = buffwrap:read_bytes(component_length:le_uint())
+        component_tree:add(data, "Component Data: " .. data)
+
     else if objecttype == Spawned_Object_Ids["PlanetMap"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. PlanetMap_Components[index] .. ")")
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+        local data = buffwrap:read_bytes(component_length:le_uint())
+        component_tree:add(data, "Component Data: " .. data)
+
     else if objecttype == Spawned_Object_Ids["AprilShipStatus"] then
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
                 .. " (" .. AprilShipStatus_Components[index] .. ")")
+        component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
+        component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
+        local data = buffwrap:read_bytes(component_length:le_uint())
+        component_tree:add(data, "Component Data: " .. data)
 
     else
         component_tree = tree:add(whole_packet_buffer, "Component " .. index
@@ -862,11 +1004,6 @@ function parseSpawnObjectComponents(buffwrap, pinfo, tree, objecttype, index)
     end
     end
     end
-
-    component_tree:add(packed_net_id_buffer, "NetId (Packed Int): " .. netid)
-    component_tree:add(component_length, "Component Length: " .. component_length:le_uint())
-    component_tree:add(data, "Component Data: " .. data)
-
 
     -- Consume unused bytes
     local actualBytesRead = buffwrap.current_offset - startOffset
@@ -898,11 +1035,6 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
         settingssubtree:add(packed_settings_length, "Settings Length: " .. settingsLength)
 
         parseGameOptionsData(buffwrap, pinfo, settingssubtree)
-
-        local confirmEjects = buffwrap:read_bytes(1)
-        settingssubtree:add(confirmEjects, "Confirm Ejects: " .. confirmEjects:uint())
-        local visualTasks = buffwrap:read_bytes(1)
-        settingssubtree:add(visualTasks, "Visual Tasks: " .. visualTasks:uint())
 
     else if rpc_code:uint() == RPC_Code['SetInfected'] then
         tree:add(rpc_code, "RPC Code: SetInfected")
@@ -1024,8 +1156,9 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
         tree:add(rpc_code, "RPC Code: SnapTo")
         local x = buffwrap:read_bytes(2)
         local y = buffwrap:read_bytes(2)
-        tree:add(x, "X (float16): " .. x)
-        tree:add(y, "Y (float16): " .. y)
+        local poseX, poseY = parseMoveVector(x:le_uint(), y:le_uint())
+        tree:add(x, "Pose Vector.x: " .. poseX)
+        tree:add(y, "Pose Vector.y: " .. poseY)
         local sequence_counter = buffwrap:read_bytes(2)
         tree:add(sequence_counter, "Sequence: " .. sequence_counter:le_uint())
 
@@ -1092,11 +1225,11 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
         local RPCPayloadlength = rpclength - packed_net_id_buffer:len() - 1 -- For netid and rpc code
         while (buffwrap.current_offset - currentOffset < RPCPayloadlength)
         do
-            local playerDataLength = buffwrap:read_bytes(2)
+            local player_count = buffwrap:read_bytes(2)
             local currentPlayerOffset = buffwrap.current_offset
 
             local playerId = buffwrap:read_bytes(1)
-            tree:add(playerDataLength, "Player Data Length: " .. playerDataLength:le_uint())
+            tree:add(player_count, "Player Data Length: " .. player_count:le_uint())
             local playerSubtree = tree:add(playerId, "Player Id: " .. playerId:uint())
 
             local name_length = buffwrap:read_bytes(1)
@@ -1139,7 +1272,7 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
 
             -- Consume unused bytes
             local actualBytesRead = buffwrap.current_offset - currentPlayerOffset
-            local declaredLength = playerDataLength:le_uint() + 1 -- add byte length for id of player
+            local declaredLength = player_count:le_uint() + 1 -- add byte length for id of player
             if actualBytesRead < declaredLength then
                 buffwrap:read_bytes(declaredLength - actualBytesRead)
             end
