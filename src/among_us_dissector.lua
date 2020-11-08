@@ -426,7 +426,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
 
 
         if b_payload_type:uint() == Payload_Type['CreateGame'] then
-            if not (buffwrap:rest_of_buffer():len() == 43) then -- Length of a GetGameList Packet (GameOptionsData + 2 bytes for length)
+            if not (payload_length:le_uint() == 43) then -- Length of a GetGameList Packet (GameOptionsData + 2 bytes for length)
                 local gamecode = buffwrap:read_bytes(4)
                 subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
                 return
@@ -437,12 +437,12 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             parseGameOptionsData(buffwrap, pinfo, subtree)
 
         else if b_payload_type:uint() == Payload_Type['JoinGame'] then
-            if buffwrap:rest_of_buffer():len() == 5 then
+            if payload_length:le_uint() == 5 then
                 local gamecode = buffwrap:read_bytes(4)
                 local map_ownership = buffwrap:read_bytes(1)
                 subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
                 subtree:add(map_ownership, "Map Ownership: " .. map_ownership)
-            else if buffwrap:rest_of_buffer():len() == 12 then
+            else if payload_length:le_uint() == 12 then
                 local gamecode = buffwrap:read_bytes(4)
                 local clientid = buffwrap:read_bytes(4)
                 local hostid = buffwrap:read_bytes(4)
@@ -583,8 +583,8 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             end
 
         else if b_payload_type:uint() == Payload_Type['GetGameList2'] then
-            if not (buffwrap:rest_of_buffer():len() == 44) then -- Length of a GetGameList Packet (GameOptionsData + 2 bytes for length)
-                subtree:add(buffwrap:rest_of_buffer(), "Get Game List V2 (Response)")
+            if not (payload_length:le_uint() == 44) then -- Length of a GetGameList Packet (GameOptionsData + 2 bytes for length)
+                subtree:add(buffwrap:peek_bytes(payload_length:le_uint()), "Get Game List V2 (Response)")
 
                 local gameListLength = buffwrap:read_bytes(2)
                 local gameListTree = subtree:add(gameListLength, "Games List Length: " .. gameListLength:le_uint())
@@ -835,7 +835,7 @@ function parseSpawnObjectComponents(buffwrap, pinfo, tree, objecttype, index)
     local componentCommand = buffwrap:read_bytes(1)
     -- TODO: Parse HeadQuarters and PlanetMap
 
-    local whole_packet_buffer = buffwrap:peek_bytes(component_length:le_uint())
+    local whole_packet_buffer = buffwrap.buffer(startOffset, packed_net_id_buffer:len() + 3 + component_length:le_uint())
     local component_tree
 
     if objecttype == Spawned_Object_Ids["ShipStatus"] then
