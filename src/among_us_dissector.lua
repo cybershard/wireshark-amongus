@@ -463,6 +463,9 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
 
         else if b_payload_type:uint() == Payload_Type['RemoveGame'] then
+            local disconnectType = buffwrap:read_bytes(1)
+            local disconnectString = Disconnect_Types:decode(disconnectType:uint())
+            subtree:add(disconnectType, "Disconnected: " .. disconnectString)
 
         else if b_payload_type:uint() == Payload_Type['RemovePlayer'] then
             local gamecode = buffwrap:read_bytes(4)
@@ -1191,8 +1194,10 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
 
     else if rpc_code:uint() == RPC_Code['AddVote'] then
         tree:add(rpc_code, "RPC Code: AddVote")
-        local playerId = buffwrap:read_bytes(1)
-        tree:add(playerId, "Player Id: " .. playerId:uint())
+        local clientId = buffwrap:read_bytes(4)
+        local targetClientId = buffwrap:read_bytes(4)
+        tree:add(clientId, "Client Id: " .. clientId:uint())
+        tree:add(targetClientId, "Target Client Id: " .. targetClientId:uint())
 
     else if rpc_code:uint() == RPC_Code['CloseDoorsOfType'] then
         tree:add(rpc_code, "RPC Code: CloseDoorsOfType")
