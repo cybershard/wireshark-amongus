@@ -1205,8 +1205,14 @@ function parseRPCPart(buffwrap, pinfo, tree, rpclength)
         tree:add(systemType, "System Type: " .. System_Types:decode(systemType:uint()))
         local senderNetId, packet_senderNetId = buffwrap:decode_packed()
         tree:add(packet_senderNetId, "Sender Id (Packed Int): " .. senderNetId)
-        local amount = buffwrap:read_bytes(2)
-        tree:add(amount, "Amount repaired: " .. decode_amount_repaired(amount))
+        local amount = buffwrap:read_bytes(1)
+        if systemType:uint() == System_Types["Sabotage"] then
+            tree:add(amount, "System sabotaged: " .. System_Types:decode(amount:uint()))
+        else
+            tree:add(amount, "Amount repaired: " .. decode_amount_repaired(amount))
+        end
+
+        
 
     else if rpc_code:uint() == RPC_Code['SetTasks'] then
         tree:add(rpc_code, "RPC Code: SetTasks")
