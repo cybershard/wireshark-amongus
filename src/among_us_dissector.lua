@@ -509,7 +509,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             for i=1, otherPlayerIdCount, 1
             do
                 local otherPlayerId, packed_other_player_id = buffwrap:decode_packed()
-                other_player_subtree:add(packed_other_player_id, "Other Client " .. i .. ": " .. otherPlayerId)
+                other_player_subtree:add(packed_other_player_id, "Other Client " .. i .. " (Packed Int): " .. otherPlayerId)
             end
         else if b_payload_type:uint() == Payload_Type["EndGame"] then
             local gamecode = buffwrap:read_bytes(4)
@@ -533,7 +533,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
         else if b_payload_type:uint() == Payload_Type["KickPlayer"] then
             if payload_length:le_uint() == 2 then
                 local playerId, packed_player_id_buffer = buffwrap:decode_packed()
-                subtree:add(packed_player_id_buffer, "Player Id (Packed Int): " .. playerId)
+                subtree:add(packed_player_id_buffer, "Client Id (Packed Int): " .. playerId)
                 if banned:uint() == 1 then
                     subtree:add(banned, "Banned: true")
                 else if banned:uint() == 0 then
@@ -765,7 +765,7 @@ function parseGameDataParts(buffwrap, pinfo, tree, gameDataPartLength)
 
         else if part_type:uint() == Game_Data_Part_Type['Ready'] then
             local playerid, packed_player_id_buffer = buffwrap:decode_packed()
-            tree:add(packed_player_id_buffer, "Player Id (Packed Int): " .. playerid)
+            tree:add(packed_player_id_buffer, "Client Id (Packed Int): " .. playerid)
 
         else if part_type:uint() == Game_Data_Part_Type['ChangeSettings'] then
             -- TODO: Unused by among Us
