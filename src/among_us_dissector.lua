@@ -428,7 +428,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
         if b_payload_type:uint() == Payload_Type['CreateGame'] then
             if not (payload_length:le_uint() == 43) then -- Length of a GetGameList Packet (GameOptionsData + 2 bytes for length)
                 local gamecode = buffwrap:read_bytes(4)
-                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
                 return
             end
 
@@ -440,19 +440,19 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             if payload_length:le_uint() == 5 then
                 local gamecode = buffwrap:read_bytes(4)
                 local map_ownership = buffwrap:read_bytes(1)
-                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
                 subtree:add(map_ownership, "Map Ownership: " .. map_ownership)
             else if payload_length:le_uint() == 12 then
                 local gamecode = buffwrap:read_bytes(4)
                 local clientid = buffwrap:read_bytes(4)
                 local hostid = buffwrap:read_bytes(4)
 
-                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
                 subtree:add(clientid, "Client Id: " .. clientid:le_uint())
                 subtree:add(hostid, "Host Id: " .. hostid:le_uint())
 
             else
-                local disconnectType = buffwrap:read_bytes(1)
+                local disconnectType = buffwrap:read_bytes(4)
                 local disconnectString = Disconnect_Types:decode(disconnectType:uint())
                 subtree:add(disconnectType, "Disconnected: " .. disconnectString)
             end
@@ -460,7 +460,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
 
         else if b_payload_type:uint() == Payload_Type['StartGame'] then
             local gamecode = buffwrap:read_bytes(4)
-            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
 
         else if b_payload_type:uint() == Payload_Type['RemoveGame'] then
             local disconnectType = buffwrap:read_bytes(1)
@@ -472,7 +472,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             local clientid = buffwrap:read_bytes(4)
             local hostid = buffwrap:read_bytes(4)
             local reasonId = buffwrap:read_bytes(1)
-            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
             subtree:add(clientid, "Client Id: " .. clientid:le_uint())
             subtree:add(hostid, "Host Id: " .. hostid:le_uint())
             subtree:add(reasonId, "Reason Id: " .. reasonId:uint())
@@ -480,7 +480,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
 
         else if b_payload_type:uint() == Payload_Type['GameData'] then
             local gamecode = buffwrap:read_bytes(4)
-            subtree:add(gamecode, "Gamecode: " .. decode_gamecode(gamecode:int()))
+            subtree:add(gamecode, "Gamecode: " .. decode_gamecode(gamecode:le_int()))
 
             parseGameDataParts(buffwrap, pinfo, subtree,
                     payload_length:le_uint() - 4) -- minus 4 because of gamecode bytes
@@ -488,7 +488,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
         else if b_payload_type:uint() == Payload_Type['GameDataTo'] then
             local gamecode = buffwrap:read_bytes(4)
             local recipientid, packed_recipientid_buffer = buffwrap:decode_packed()
-            subtree:add(gamecode, "Gamecode: " .. decode_gamecode(gamecode:int()))
+            subtree:add(gamecode, "Gamecode: " .. decode_gamecode(gamecode:le_int()))
             subtree:add(packed_recipientid_buffer, "Recipient Client ID (Packed Int): " .. recipientid)
 
             parseGameDataParts(buffwrap, pinfo, subtree,
@@ -498,7 +498,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             local gamecode = buffwrap:read_bytes(4)
             local clientid = buffwrap:read_bytes(4)
             local hostid = buffwrap:read_bytes(4)
-            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
             subtree:add(clientid, "Client Id: " .. clientid:le_uint())
             subtree:add(hostid, "Host Id: " .. hostid:le_uint())
 
@@ -513,7 +513,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             end
         else if b_payload_type:uint() == Payload_Type["EndGame"] then
             local gamecode = buffwrap:read_bytes(4)
-            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
             local end_reason = buffwrap:read_bytes(1)
             subtree:add(end_reason, "End Reason: " .. end_reason:uint())
             local show_ad = buffwrap:read_bytes(1)
@@ -521,7 +521,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
 
         else if b_payload_type:uint() == Payload_Type["AlterGame"] then
             local gamecode = buffwrap:read_bytes(4)
-            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+            subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
 
             local payloadVersion = buffwrap:read_bytes(1)
             local privacyBool = buffwrap:read_bytes(1)
@@ -542,7 +542,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
                 end
             else
                 local gamecode = buffwrap:read_bytes(4)
-                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+                subtree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
                 local playerId, packed_player_id_buffer = buffwrap:decode_packed()
                 subtree:add(packed_player_id_buffer, "Player Id (Packed Int): " .. playerId)
                 local banned = buffwrap:read_bytes(1)
@@ -606,7 +606,7 @@ function parse_packet_payload(buffwrap, pinfo, tree)
                     gameInfoTree:add(ipaddr, "IP: " .. decode_ipv4(ipaddr))
                     gameInfoTree:add(port, "Port: " .. port:le_uint())
                     local gamecode = buffwrap:read_bytes(4)
-                    gameInfoTree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:int()))
+                    gameInfoTree:add(gamecode, "Game Code: " .. decode_gamecode(gamecode:le_int()))
                     local name_length = buffwrap:read_bytes(1)
                     local name_string = buffwrap:read_bytes(name_length:le_uint())
                     gameInfoTree:add(name_length, "Name Length: ", name_length:uint())
