@@ -102,7 +102,7 @@ MeetingHud_Components = {
     "PlayerVoteFlags"
 }
 Lobby_Components = {
-    "FollowerCamera"
+    "LobbyBehaviour"
 }
 GameData_Components = {
     "PlayerInfo",
