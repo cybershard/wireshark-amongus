@@ -368,6 +368,13 @@ function proto_among_us.dissector(buffer, pinfo, tree)
 end
 
 function parse_packet_format(buffwrap, pinfo, tree)
+    if buffwrap:peek_bytes(1):uint() == 128 then
+        buffwrap:read_bytes(37)
+        parse_packet_format(buffwrap, pinfo, tree)
+        return
+    end
+
+
     local b_packet_format = buffwrap:read_bytes(1)
     tree:add(packet_format_field, b_packet_format)
 
