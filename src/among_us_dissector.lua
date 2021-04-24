@@ -29,7 +29,8 @@ Payload_Type = {
     WaitForHost = 12, -- impl
     Redirect = 13,
     RedirectMasterServer = 14,
-    GetGameList2 = 16
+    GetGameList2 = 16,
+    SetGameOption = 137
 }
 
 Game_Data_Part_Type = {
@@ -636,7 +637,65 @@ function parse_packet_payload(buffwrap, pinfo, tree)
             subtree:add(settingsLength, "GameOptionsData Length: " .. settingsLength:uint())
             parseGameOptionsData(buffwrap, pinfo, subtree)
 
+        else if b_payload_type:uint() == Payload_Type['SetGameOption'] then
+        	local sequenceId = buffwrap:read_bytes(2)
 
+            local category_length, category_buffer = buffwrap:decode_packed()
+            local category_string = buffwrap:read_bytes(category_length)
+
+            local name_length, name_buffer = buffwrap:decode_packed()
+            local name_string = buffwrap:read_bytes(name_length)
+
+            local gameoption_type = buffwrap:read_bytes(1)
+        	
+        	subtree:add(sequenceId, "Sequence ID:", sequenceId:le_uint())
+        	subtree:add(category_buffer, "Category Name Length:", category_length)
+        	subtree:add(category_string, "Category String:", category_string:string())
+        	subtree:add(name_buffer, "Name Length:", name_length)
+        	subtree:add(name_string, "Name:", name_string:string())
+
+        	if gameoption_type:uint(1) == 0 then
+				local value_subtree = subtree:add(gameoption_type, "Type: NumberValue")
+				local value = buffwrap:read_bytes(4)
+				local step = buffwrap:read_bytes(4)
+				local lower = buffwrap:read_bytes(4)
+				local upper = buffwrap:read_bytes(4)
+				local zero_is_infinity = buffwrap:read_bytes(1)
+				local fmt_string_length, fmt_string_buffer = buffwrap:decode_packed()
+				local fmt_string = buffwrap:read_bytes(fmt_string_length)
+				
+				value_subtree:add(value, "Value:", value:le_float())
+				value_subtree:add(step, "Step:", step:le_float())
+				value_subtree:add(lower, "Lower:", lower:le_float())
+				value_subtree:add(upper, "Upper:", upper:le_float())
+				value_subtree:add(zero_is_infinity, "Zero Is Infinity:", zero_is_infinity:uint())
+				value_subtree:add(fmt_string, "Format String:", fmt_string:string())
+
+        	else if gameoption_type:uint(1) == 1 then
+        		local bool = buffwrap:read_bytes(1)
+				
+				if bool:uint(1) == 0 then
+					subtree:add(bool, "Type: BooleanValue = False")
+				else if bool:uint(1) == 1 then
+					subtree:add(bool, "Type: BooleanValue = True")
+				end
+				end
+
+        	else if gameoption_type:uint(1) == 2 then
+				local value_subtree = subtree:add(gameoption_type, "Type: EnumValue")
+				local index = buffwrap:read_bytes(1)
+
+				value_subtree:add(index, "Index:", index:uint())
+				while (payload_length:le_uint() > buffwrap.current_offset - payloadStartOffset) do
+					local option_name_length, option_name_buffer = buffwrap:decode_packed()
+					local option_name = buffwrap:read_bytes(option_name_length)
+					value_subtree:add(option_name, "Option:", option_name:string())
+				end
+        	end
+        	end
+        	end
+
+        end
         end
         end
         end
